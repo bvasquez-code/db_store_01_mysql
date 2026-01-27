@@ -1,5 +1,6 @@
 DELIMITER ;;
-CREATE PROCEDURE `db_store_01`.`get_cod_seq`(
+DROP PROCEDURE IF EXISTS `get_cod_seq`;;
+CREATE PROCEDURE `get_cod_seq`(
 	IN p_SequenceTableType VARCHAR(32)
 )
 begin
@@ -11,7 +12,11 @@ begin
 	update table_sequence set SequenceTrx = SequenceTrx + 1
 	where SequenceTableType = p_SequenceTableType;
 
-	select CONCAT(Prefix,LPAD(SequenceTrx, length - length(Prefix)  , '0')) into l_cod_trx
+	select 
+        CASE 
+            WHEN UsePrefix = 'S' THEN CONCAT(Prefix, LPAD(SequenceTrx, length - length(Prefix), '0'))
+            ELSE LPAD(SequenceTrx, length, '0')
+        END into l_cod_trx
 	from table_sequence 
 	where SequenceTableType = p_SequenceTableType;
 
