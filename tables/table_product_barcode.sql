@@ -1,4 +1,21 @@
-﻿DROP TABLE IF EXISTS `product_barcode`;
+DROP PROCEDURE IF EXISTS `p_manage_product_barcode`;
+
+DELIMITER $$
+
+CREATE PROCEDURE `p_manage_product_barcode`()
+BEGIN
+    DECLARE v_table_exists INT DEFAULT 0;
+
+    -- 1. Verificamos si la tabla existe
+    SELECT COUNT(*) INTO v_table_exists
+    FROM information_schema.tables 
+    WHERE table_schema = DATABASE() 
+    AND table_name = 'product_barcode';
+
+    IF v_table_exists = 0 THEN
+        -- =============================================
+        -- CASO: LA TABLA NO EXISTE -> CREARLA COMPLETA
+        -- =============================================
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `product_barcode` (
@@ -18,3 +35,24 @@ CREATE TABLE `product_barcode` (
 --
 -- Table structure for table `product_config`
 --
+
+        SELECT 'Tabla product_barcode creada desde cero.' AS Mensaje;
+
+    ELSE
+        -- =============================================
+        -- CASO: LA TABLA YA EXISTE -> APLICAR ALTERS
+        -- =============================================
+        
+        -- Aqui puedes agregar bloques IF NOT EXISTS para futuros ALTERs
+        
+        SELECT 'Tabla product_barcode ya existe. No se realizaron cambios estructurales.' AS Mensaje;
+
+    END IF;
+
+END $$
+
+DELIMITER ;
+
+-- Ejecutar y limpiar
+CALL `p_manage_product_barcode`();
+DROP PROCEDURE `p_manage_product_barcode`;

@@ -1,4 +1,21 @@
-﻿DROP TABLE IF EXISTS `product_ranking`;
+DROP PROCEDURE IF EXISTS `p_manage_product_ranking`;
+
+DELIMITER $$
+
+CREATE PROCEDURE `p_manage_product_ranking`()
+BEGIN
+    DECLARE v_table_exists INT DEFAULT 0;
+
+    -- 1. Verificamos si la tabla existe
+    SELECT COUNT(*) INTO v_table_exists
+    FROM information_schema.tables 
+    WHERE table_schema = DATABASE() 
+    AND table_name = 'product_ranking';
+
+    IF v_table_exists = 0 THEN
+        -- =============================================
+        -- CASO: LA TABLA NO EXISTE -> CREARLA COMPLETA
+        -- =============================================
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `product_ranking` (
@@ -20,3 +37,24 @@ CREATE TABLE `product_ranking` (
 --
 -- Table structure for table `product_search`
 --
+
+        SELECT 'Tabla product_ranking creada desde cero.' AS Mensaje;
+
+    ELSE
+        -- =============================================
+        -- CASO: LA TABLA YA EXISTE -> APLICAR ALTERS
+        -- =============================================
+        
+        -- Aqui puedes agregar bloques IF NOT EXISTS para futuros ALTERs
+        
+        SELECT 'Tabla product_ranking ya existe. No se realizaron cambios estructurales.' AS Mensaje;
+
+    END IF;
+
+END $$
+
+DELIMITER ;
+
+-- Ejecutar y limpiar
+CALL `p_manage_product_ranking`();
+DROP PROCEDURE `p_manage_product_ranking`;

@@ -1,4 +1,21 @@
-﻿DROP TABLE IF EXISTS `promotion_product`;
+DROP PROCEDURE IF EXISTS `p_manage_promotion_product`;
+
+DELIMITER $$
+
+CREATE PROCEDURE `p_manage_promotion_product`()
+BEGIN
+    DECLARE v_table_exists INT DEFAULT 0;
+
+    -- 1. Verificamos si la tabla existe
+    SELECT COUNT(*) INTO v_table_exists
+    FROM information_schema.tables 
+    WHERE table_schema = DATABASE() 
+    AND table_name = 'promotion_product';
+
+    IF v_table_exists = 0 THEN
+        -- =============================================
+        -- CASO: LA TABLA NO EXISTE -> CREARLA COMPLETA
+        -- =============================================
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `promotion_product` (
@@ -23,3 +40,24 @@ CREATE TABLE `promotion_product` (
 --
 -- Table structure for table `promotion_store`
 --
+
+        SELECT 'Tabla promotion_product creada desde cero.' AS Mensaje;
+
+    ELSE
+        -- =============================================
+        -- CASO: LA TABLA YA EXISTE -> APLICAR ALTERS
+        -- =============================================
+        
+        -- Aqui puedes agregar bloques IF NOT EXISTS para futuros ALTERs
+        
+        SELECT 'Tabla promotion_product ya existe. No se realizaron cambios estructurales.' AS Mensaje;
+
+    END IF;
+
+END $$
+
+DELIMITER ;
+
+-- Ejecutar y limpiar
+CALL `p_manage_promotion_product`();
+DROP PROCEDURE `p_manage_promotion_product`;
