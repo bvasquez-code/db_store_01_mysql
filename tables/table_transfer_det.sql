@@ -27,6 +27,7 @@ BEGIN
           `NumUnit` decimal(16,3) NOT NULL COMMENT 'Cantidad de unidades a transferir (permite decimales si aplica)',
           `NumUnitDispatch` decimal(16,3) DEFAULT NULL COMMENT 'Cantidad de unidades efectivamente despachadas',
           `NumUnitReception` decimal(16,3) DEFAULT NULL COMMENT 'Cantidad de unidades efectivamente recepcionadas',
+          `FlgRequested` char(1) NOT NULL DEFAULT 'S' COMMENT 'Indicador si el producto fue solicitado (S=Si, N=No)',
           `LotNumber` varchar(32) DEFAULT NULL COMMENT 'Número de lote del producto (si aplica)',
           `ExpirationDate` date DEFAULT NULL COMMENT 'Fecha de vencimiento (si aplica)',
           `CreationUser` varchar(16) NOT NULL COMMENT 'Usuario que creó el registro',
@@ -68,6 +69,14 @@ BEGIN
         ) THEN
             ALTER TABLE `transfer_det` ADD COLUMN `NumUnitReception` decimal(16,3) DEFAULT NULL COMMENT 'Cantidad de unidades efectivamente recepcionadas' AFTER `NumUnitDispatch`;
             SELECT 'Columna NumUnitReception agregada exitosamente.' AS Mensaje;
+        END IF;
+        -- AGREGANDO COLUMNA FlgRequested
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'transfer_det' 
+            AND column_name = 'FlgRequested'
+        ) THEN
+            ALTER TABLE `transfer_det` ADD COLUMN `FlgRequested` char(1) NOT NULL DEFAULT 'S' COMMENT 'Indicador si el producto fue solicitado (S=Si, N=No)' AFTER `NumUnitReception`;
+            SELECT 'Columna FlgRequested agregada exitosamente.' AS Mensaje;
         END IF;
         
     END IF;
