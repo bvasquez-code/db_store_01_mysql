@@ -25,6 +25,9 @@ CREATE TABLE `person` (
   `DocumentNum` varchar(16) NOT NULL COMMENT 'Numero de documento de identidad',
   `Names` varchar(128) NOT NULL COMMENT 'Nombres',
   `LastNames` varchar(128) NOT NULL COMMENT 'Apellidos',
+  `CommercialName` varchar(128) DEFAULT NULL COMMENT 'Nombre comercial',
+  `BusinessName` varchar(128) DEFAULT NULL COMMENT 'Razon social',
+  `Address` varchar(256) DEFAULT NULL COMMENT 'Direccion',
   `UbigeoCod` varchar(12) DEFAULT NULL COMMENT 'codigo de ubigeo',
   `Phone` varchar(20) DEFAULT NULL COMMENT 'Telefono',
   `CellPhone` varchar(20) DEFAULT NULL COMMENT 'Telefono celular',
@@ -52,8 +55,43 @@ CREATE TABLE `person` (
         -- =============================================
         
         -- Aqui puedes agregar bloques IF NOT EXISTS para futuros ALTERs
+        IF NOT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+            AND table_name = 'person'
+            AND column_name = 'CommercialName'
+        ) THEN
+            ALTER TABLE `person`
+            ADD COLUMN `CommercialName` varchar(128) DEFAULT NULL COMMENT 'Nombre comercial'
+            AFTER `LastNames`;
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+            AND table_name = 'person'
+            AND column_name = 'BusinessName'
+        ) THEN
+            ALTER TABLE `person`
+            ADD COLUMN `BusinessName` varchar(128) DEFAULT NULL COMMENT 'Razon social'
+            AFTER `CommercialName`;
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+            AND table_name = 'person'
+            AND column_name = 'Address'
+        ) THEN
+            ALTER TABLE `person`
+            ADD COLUMN `Address` varchar(256) DEFAULT NULL COMMENT 'Direccion'
+            AFTER `BusinessName`;
+        END IF;
         
-        SELECT 'Tabla person ya existe. No se realizaron cambios estructurales.' AS Mensaje;
+        SELECT 'Tabla person ya existe. Alteraciones aplicadas si eran necesarias.' AS Mensaje;
 
     END IF;
 
