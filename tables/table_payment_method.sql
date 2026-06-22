@@ -22,6 +22,8 @@ CREATE TABLE `payment_method` (
   `PaymentMethodCod` varchar(8) NOT NULL,
   `Name` varchar(32) NOT NULL COMMENT 'nombre del metodo de pago',
   `Description` varchar(64) NOT NULL COMMENT 'descripcion del metodo de pago',
+  `FileCod` varchar(20) NULL COMMENT 'Código de archivo de imagen del medio de pago',
+  `Route` varchar(500) NULL COMMENT 'Ruta de archivo de imagen del medio de pago',
   `CreationUser` varchar(16) NOT NULL,
   `CreationDate` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `ModifyUser` varchar(16) DEFAULT NULL,
@@ -45,9 +47,27 @@ CREATE TABLE `payment_method` (
         
         -- Aqui puedes agregar bloques IF NOT EXISTS para futuros ALTERs
         
-        SELECT 'Tabla payment_method ya existe. No se realizaron cambios estructurales.' AS Mensaje;
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'payment_method'
+            AND column_name = 'FileCod'
+        ) THEN
+            ALTER TABLE `payment_method` ADD COLUMN `FileCod` varchar(20) DEFAULT NULL COMMENT 'Código de archivo de imagen del medio de pago' AFTER `Description`;
+            SELECT 'Columna FileCod agregada exitosamente.' AS Mensaje;
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'payment_method'
+            AND column_name = 'Route'
+        ) THEN
+            ALTER TABLE `payment_method` ADD COLUMN `Route` varchar(500) DEFAULT NULL COMMENT 'Ruta de archivo de imagen del medio de pago' AFTER `Description`;
+            SELECT 'Columna Route agregada exitosamente.' AS Mensaje;
+        END IF;
+
+        
 
     END IF;
+
+
 
 END $$
 
