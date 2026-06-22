@@ -21,6 +21,7 @@ BEGIN
 CREATE TABLE `kardex` (
   `kardexID` bigint NOT NULL AUTO_INCREMENT,
   `OperationCod` varchar(16) NOT NULL COMMENT 'Codigo de operacion',
+  `ItemNumber` int DEFAULT NULL COMMENT 'Número de ítem/secuencia del documento origen',
   `SourceTable` varchar(20) NOT NULL COMMENT 'Tabla origen',
   `TypeOperation` char(1) NOT NULL COMMENT 'tipo de operacion',
   `ProductCod` varchar(20) NOT NULL COMMENT 'Codigo de producto',
@@ -30,6 +31,8 @@ CREATE TABLE `kardex` (
   `NumStockBefore` int DEFAULT NULL,
   `NumStockMoved` int DEFAULT NULL,
   `NumStockAfter` int DEFAULT NULL,
+  `LotNumber` varchar(32) DEFAULT NULL COMMENT 'Número de lote del producto (si aplica)',
+  `ExpirationDate` date DEFAULT NULL COMMENT 'Fecha de vencimiento (si aplica)',
   `CreationUser` varchar(16) NOT NULL,
   `CreationDate` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `ModifyUser` varchar(16) DEFAULT NULL,
@@ -41,6 +44,7 @@ CREATE TABLE `kardex` (
   KEY `fk_kardex_store` (`StoreCod`),
   KEY `fk_kardex_warehouse` (`WarehouseCod`),
   KEY `idx_kardex_table` (`SourceTable`,`OperationCod`),
+  KEY `idx_kardex_source_item` (`SourceTable`,`OperationCod`,`ItemNumber`),
   CONSTRAINT `fk_kardex_product` FOREIGN KEY (`ProductCod`) REFERENCES `product` (`ProductCod`),
   CONSTRAINT `fk_kardex_store` FOREIGN KEY (`StoreCod`) REFERENCES `store` (`StoreCod`),
   CONSTRAINT `fk_kardex_variant` FOREIGN KEY (`ProductCod`, `Variant`) REFERENCES `product_variant` (`ProductCod`, `Variant`),
@@ -59,9 +63,41 @@ CREATE TABLE `kardex` (
         -- CASO: LA TABLA YA EXISTE -> APLICAR ALTERS
         -- =============================================
         
-        -- Aqui puedes agregar bloques IF NOT EXISTS para futuros ALTERs
-        
-        SELECT 'Tabla kardex ya existe. No se realizaron cambios estructurales.' AS Mensaje;
+        -- AGREGANDO COLUMNA ItemNumber
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'kardex'
+            AND column_name = 'ItemNumber'
+        ) THEN
+            ALTER TABLE `kardex` ADD COLUMN `ItemNumber` int DEFAULT NULL COMMENT 'Número de ítem/secuencia del documento origen' AFTER `OperationCod`;
+            SELECT 'Columna ItemNumber agregada exitosamente.' AS Mensaje;
+        END IF;
+
+        -- AGREGANDO COLUMNA LotNumber
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'kardex'
+            AND column_name = 'LotNumber'
+        ) THEN
+            ALTER TABLE `kardex` ADD COLUMN `LotNumber` varchar(32) DEFAULT NULL COMMENT 'Número de lote del producto (si aplica)' AFTER `NumStockAfter`;
+            SELECT 'Columna LotNumber agregada exitosamente.' AS Mensaje;
+        END IF;
+
+        -- AGREGANDO COLUMNA ExpirationDate
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'kardex'
+            AND column_name = 'ExpirationDate'
+        ) THEN
+            ALTER TABLE `kardex` ADD COLUMN `ExpirationDate` date DEFAULT NULL COMMENT 'Fecha de vencimiento (si aplica)' AFTER `LotNumber`;
+            SELECT 'Columna ExpirationDate agregada exitosamente.' AS Mensaje;
+        END IF;
+
+        -- AGREGANDO ÍNDICE DE ORIGEN POR ÍTEM
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'kardex'
+            AND index_name = 'idx_kardex_source_item'
+        ) THEN
+            ALTER TABLE `kardex` ADD KEY `idx_kardex_source_item` (`SourceTable`,`OperationCod`,`ItemNumber`);
+            SELECT 'Índice idx_kardex_source_item agregado exitosamente.' AS Mensaje;
+        END IF;
 
     END IF;
 

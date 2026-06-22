@@ -20,6 +20,7 @@ BEGIN
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `pucharse_det` (
   `PucharseCod` varchar(16) NOT NULL,
+  `ItemNumber` int NOT NULL COMMENT 'Número de ítem/secuencia dentro de la compra',
   `ProductCod` varchar(20) NOT NULL,
   `Variant` varchar(4) NOT NULL DEFAULT (_utf8mb4'0000'),
   `NumUnit` int DEFAULT NULL,
@@ -32,7 +33,10 @@ CREATE TABLE `pucharse_det` (
   `Status` char(1) NOT NULL DEFAULT 'A',
   `IsKardexAffected` char(1) DEFAULT 'N',
   `NumUnitDelivered` int DEFAULT '0',
-  PRIMARY KEY (`PucharseCod`,`ProductCod`,`Variant`),
+  `LotNumber` varchar(32) DEFAULT NULL COMMENT 'Número de lote del producto (si aplica)',
+  `ExpirationDate` date DEFAULT NULL COMMENT 'Fecha de vencimiento (si aplica)',
+  PRIMARY KEY (`PucharseCod`,`ItemNumber`),
+  KEY `idx_pucharse_det_old_pk` (`PucharseCod`,`ProductCod`,`Variant`),
   KEY `fk_pucharse_det_variant` (`ProductCod`,`Variant`),
   CONSTRAINT `fk_pucharse_det_product` FOREIGN KEY (`ProductCod`) REFERENCES `product` (`ProductCod`),
   CONSTRAINT `fk_pucharse_det_pucharse_head` FOREIGN KEY (`PucharseCod`) REFERENCES `pucharse_head` (`PucharseCod`),
@@ -51,9 +55,77 @@ CREATE TABLE `pucharse_det` (
         -- CASO: LA TABLA YA EXISTE -> APLICAR ALTERS
         -- =============================================
         
-        -- Aqui puedes agregar bloques IF NOT EXISTS para futuros ALTERs
-        
-        SELECT 'Tabla pucharse_det ya existe. No se realizaron cambios estructurales.' AS Mensaje;
+        -- AGREGANDO COLUMNA ItemNumber
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pucharse_det'
+            AND column_name = 'ItemNumber'
+        ) THEN
+            ALTER TABLE `pucharse_det` ADD COLUMN `ItemNumber` int NOT NULL DEFAULT 0 COMMENT 'Número de ítem/secuencia dentro de la compra' AFTER `PucharseCod`;
+            UPDATE `pucharse_det` t
+            JOIN (
+                SELECT x.`PucharseCod`, x.`ProductCod`, x.`Variant`,
+                       @item_number := IF(@parent_cod = x.`PucharseCod`, @item_number + 1, 1) AS NewItemNumber,
+                       @parent_cod := x.`PucharseCod`
+                FROM (
+                    SELECT `PucharseCod`, `ProductCod`, `Variant`
+                    FROM `pucharse_det`
+                    ORDER BY `PucharseCod`, `ProductCod`, `Variant`
+                ) x
+                CROSS JOIN (SELECT @parent_cod := '', @item_number := 0) vars
+            ) n ON n.`PucharseCod` = t.`PucharseCod`
+                AND n.`ProductCod` = t.`ProductCod`
+                AND n.`Variant` = t.`Variant`
+            SET t.`ItemNumber` = n.NewItemNumber;
+            SELECT 'Columna ItemNumber agregada exitosamente.' AS Mensaje;
+        END IF;
+
+        -- AGREGANDO COLUMNA LotNumber
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pucharse_det'
+            AND column_name = 'LotNumber'
+        ) THEN
+            ALTER TABLE `pucharse_det` ADD COLUMN `LotNumber` varchar(32) DEFAULT NULL COMMENT 'Número de lote del producto (si aplica)' AFTER `NumUnitDelivered`;
+            SELECT 'Columna LotNumber agregada exitosamente.' AS Mensaje;
+        END IF;
+
+        -- AGREGANDO COLUMNA ExpirationDate
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pucharse_det'
+            AND column_name = 'ExpirationDate'
+        ) THEN
+            ALTER TABLE `pucharse_det` ADD COLUMN `ExpirationDate` date DEFAULT NULL COMMENT 'Fecha de vencimiento (si aplica)' AFTER `LotNumber`;
+            SELECT 'Columna ExpirationDate agregada exitosamente.' AS Mensaje;
+        END IF;
+
+        -- ACTUALIZANDO PRIMARY KEY SI ES NECESARIO
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'pucharse_det'
+            AND index_name = 'PRIMARY' AND column_name = 'PucharseCod' AND seq_in_index = 1
+        ) OR NOT EXISTS (
+            SELECT * FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'pucharse_det'
+            AND index_name = 'PRIMARY' AND column_name = 'ItemNumber' AND seq_in_index = 2
+        ) OR EXISTS (
+            SELECT * FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'pucharse_det'
+            AND index_name = 'PRIMARY' AND seq_in_index > 2
+        ) THEN
+            IF NOT EXISTS (
+                SELECT * FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'pucharse_det'
+                AND index_name = 'idx_pucharse_det_old_pk'
+            ) THEN
+                ALTER TABLE `pucharse_det` ADD KEY `idx_pucharse_det_old_pk` (`PucharseCod`,`ProductCod`,`Variant`);
+                SELECT 'Índice idx_pucharse_det_old_pk agregado exitosamente.' AS Mensaje;
+            END IF;
+
+            IF EXISTS (
+                SELECT * FROM information_schema.table_constraints WHERE table_schema = DATABASE() AND table_name = 'pucharse_det'
+                AND constraint_type = 'PRIMARY KEY'
+            ) THEN
+                ALTER TABLE `pucharse_det` DROP PRIMARY KEY;
+            END IF;
+
+            ALTER TABLE `pucharse_det` ADD PRIMARY KEY (`PucharseCod`,`ItemNumber`);
+            SELECT 'Primary key de pucharse_det actualizada exitosamente.' AS Mensaje;
+        END IF;
 
     END IF;
 

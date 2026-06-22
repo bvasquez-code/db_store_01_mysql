@@ -33,6 +33,7 @@ CREATE TABLE `sale_payments` (
   `ModifyUser` varchar(16) DEFAULT NULL,
   `ModifyDate` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `Status` char(1) NOT NULL DEFAULT 'A',
+  PRIMARY KEY (`PaymentNumber`,`SaleCod`,`TrxPaymentId`),
   KEY `fk_sale_payments_sale` (`SaleCod`),
   KEY `fk_sale_payments_currency` (`CurrencyCod`),
   KEY `fk_sale_payments_currencySys` (`CurrencyCodSys`),
@@ -56,8 +57,16 @@ CREATE TABLE `sale_payments` (
         -- =============================================
         
         -- Aqui puedes agregar bloques IF NOT EXISTS para futuros ALTERs
+        -- AGREGANDO PRIMARY KEY SI NO EXISTE
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.table_constraints WHERE table_schema = DATABASE() AND table_name = 'sale_payments'
+            AND constraint_type = 'PRIMARY KEY'
+        ) THEN
+            ALTER TABLE `sale_payments` ADD PRIMARY KEY (`PaymentNumber`,`SaleCod`,`TrxPaymentId`);
+            SELECT 'Primary key de sale_payments agregada exitosamente.' AS Mensaje;
+        END IF;
         
-        SELECT 'Tabla sale_payments ya existe. No se realizaron cambios estructurales.' AS Mensaje;
+        SELECT 'Tabla sale_payments ya existe. Proceso de validacion estructural finalizado.' AS Mensaje;
 
     END IF;
 

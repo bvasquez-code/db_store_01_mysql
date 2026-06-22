@@ -35,7 +35,8 @@ BEGIN
           `ModifyUser` varchar(16) DEFAULT NULL COMMENT 'Usuario que modificó por última vez el registro',
           `ModifyDate` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Fecha y hora de la última modificación del registro',
           `Status` char(1) NOT NULL DEFAULT 'A' COMMENT 'Estado lógico del registro: A=Activo, I=Inactivo',
-          PRIMARY KEY (`TransferCod`,`ProductCod`,`Variant`,`ItemNumber`),
+          PRIMARY KEY (`TransferCod`,`ItemNumber`),
+          KEY `idx_transfer_det_old_pk` (`TransferCod`,`ProductCod`,`Variant`,`ItemNumber`),
           KEY `idx_transfer_det_transfer` (`TransferCod`) COMMENT 'Índice para listar detalles por transferencia',
           KEY `idx_transfer_det_product` (`ProductCod`) COMMENT 'Índice para consultas por producto dentro de transferencias',
           KEY `fk_transfer_det_wh_origin` (`WarehouseCodOrigin`),
@@ -53,6 +54,30 @@ BEGIN
         -- CASO: LA TABLA YA EXISTE -> APLICAR ALTERS
         -- =============================================
         
+        -- AGREGANDO COLUMNA ItemNumber
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'transfer_det' 
+            AND column_name = 'ItemNumber'
+        ) THEN
+            ALTER TABLE `transfer_det` ADD COLUMN `ItemNumber` int NOT NULL DEFAULT 0 COMMENT 'Número de ítem/secuencia dentro de la transferencia' AFTER `TypeOperation`;
+            UPDATE `transfer_det` t
+            JOIN (
+                SELECT x.`TransferCod`, x.`ProductCod`, x.`Variant`,
+                       @item_number := IF(@parent_cod = x.`TransferCod`, @item_number + 1, 1) AS NewItemNumber,
+                       @parent_cod := x.`TransferCod`
+                FROM (
+                    SELECT `TransferCod`, `ProductCod`, `Variant`
+                    FROM `transfer_det`
+                    ORDER BY `TransferCod`, `ProductCod`, `Variant`
+                ) x
+                CROSS JOIN (SELECT @parent_cod := '', @item_number := 0) vars
+            ) n ON n.`TransferCod` = t.`TransferCod`
+                AND n.`ProductCod` = t.`ProductCod`
+                AND n.`Variant` = t.`Variant`
+            SET t.`ItemNumber` = n.NewItemNumber;
+            SELECT 'Columna ItemNumber agregada exitosamente.' AS Mensaje;
+        END IF;
+
         -- AGREGANDO COLUMNA NumUnitDispatch
         IF NOT EXISTS (
             SELECT * FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'transfer_det' 
@@ -77,6 +102,54 @@ BEGIN
         ) THEN
             ALTER TABLE `transfer_det` ADD COLUMN `FlgRequested` char(1) NOT NULL DEFAULT 'S' COMMENT 'Indicador si el producto fue solicitado (S=Si, N=No)' AFTER `NumUnitReception`;
             SELECT 'Columna FlgRequested agregada exitosamente.' AS Mensaje;
+        END IF;
+
+        -- AGREGANDO COLUMNA LotNumber
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'transfer_det' 
+            AND column_name = 'LotNumber'
+        ) THEN
+            ALTER TABLE `transfer_det` ADD COLUMN `LotNumber` varchar(32) DEFAULT NULL COMMENT 'Número de lote del producto (si aplica)' AFTER `FlgRequested`;
+            SELECT 'Columna LotNumber agregada exitosamente.' AS Mensaje;
+        END IF;
+
+        -- AGREGANDO COLUMNA ExpirationDate
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'transfer_det' 
+            AND column_name = 'ExpirationDate'
+        ) THEN
+            ALTER TABLE `transfer_det` ADD COLUMN `ExpirationDate` date DEFAULT NULL COMMENT 'Fecha de vencimiento (si aplica)' AFTER `LotNumber`;
+            SELECT 'Columna ExpirationDate agregada exitosamente.' AS Mensaje;
+        END IF;
+
+        -- ACTUALIZANDO PRIMARY KEY SI ES NECESARIO
+        IF NOT EXISTS (
+            SELECT * FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'transfer_det'
+            AND index_name = 'PRIMARY' AND column_name = 'TransferCod' AND seq_in_index = 1
+        ) OR NOT EXISTS (
+            SELECT * FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'transfer_det'
+            AND index_name = 'PRIMARY' AND column_name = 'ItemNumber' AND seq_in_index = 2
+        ) OR EXISTS (
+            SELECT * FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'transfer_det'
+            AND index_name = 'PRIMARY' AND seq_in_index > 2
+        ) THEN
+            IF NOT EXISTS (
+                SELECT * FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'transfer_det'
+                AND index_name = 'idx_transfer_det_old_pk'
+            ) THEN
+                ALTER TABLE `transfer_det` ADD KEY `idx_transfer_det_old_pk` (`TransferCod`,`ProductCod`,`Variant`,`ItemNumber`);
+                SELECT 'Índice idx_transfer_det_old_pk agregado exitosamente.' AS Mensaje;
+            END IF;
+
+            IF EXISTS (
+                SELECT * FROM information_schema.table_constraints WHERE table_schema = DATABASE() AND table_name = 'transfer_det'
+                AND constraint_type = 'PRIMARY KEY'
+            ) THEN
+                ALTER TABLE `transfer_det` DROP PRIMARY KEY;
+            END IF;
+
+            ALTER TABLE `transfer_det` ADD PRIMARY KEY (`TransferCod`,`ItemNumber`);
+            SELECT 'Primary key de transfer_det actualizada exitosamente.' AS Mensaje;
         END IF;
         
     END IF;
